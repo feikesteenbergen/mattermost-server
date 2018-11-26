@@ -7,6 +7,7 @@ import (
 	"image"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/dyatlov/go-opengraph/opengraph"
@@ -315,6 +316,8 @@ func getImagesInMessageAttachments(post *model.Post) []string {
 }
 
 func (a *App) getLinkMetadata(requestURL string, useCache bool) (*opengraph.OpenGraph, *model.PostImage, error) {
+	requestURL = normalizeMetadataRequestURL(requestURL, a.GetSiteURL())
+
 	// Check cache
 	if useCache {
 		og, image, ok := getLinkMetadataFromCache(requestURL)
@@ -347,6 +350,38 @@ func (a *App) getLinkMetadata(requestURL string, useCache bool) (*opengraph.Open
 	}
 
 	return og, image, err
+}
+
+// normalizeMetadataRequestURL ensures that a given URL is normalized in the same way as the web app.
+func normalizeMetadataRequestURL(requestURL string, siteURL string) string {
+	parsed, err := url.Parse(requestURL)
+	if err != nil {
+		return ""
+	}
+
+	if parsed.Scheme != "" {
+		// Link is already correct
+		return requestURL
+	}
+
+	if !strings.HasPrefix(requestURL, "/") {
+		// While this could be a relative path to a resource on the Mattermost server, the web app
+		// treats this as a link that's just missing the the URL Scheme
+		return "http://" + requestURL
+	}
+
+	// This is a relative link starting with a /, so add the Site URL to resolve the complete URL
+	base, err := url.Parse(siteURL)
+	if err != nil {
+		return ""
+	}
+
+	parsed, err = base.Parse(requestURL)
+	if err != nil {
+		return ""
+	}
+
+	return parsed.String()
 }
 
 func getLinkMetadataFromCache(requestURL string) (*opengraph.OpenGraph, *model.PostImage, bool) {

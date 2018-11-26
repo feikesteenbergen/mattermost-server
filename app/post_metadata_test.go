@@ -990,6 +990,46 @@ func TestGetImagesInMessageAttachments(t *testing.T) {
 	}
 }
 
+func TestNormalizeMetadataRequestURL(t *testing.T) {
+	for _, test := range []struct {
+		Name       string
+		RequestURL string
+		SiteURL    string
+		Expected   string
+	}{
+		{
+			Name:       "with HTTPS",
+			RequestURL: "https://example.com/file?param=1",
+			Expected:   "https://example.com/file?param=1",
+		},
+		{
+			Name:       "with HTTP",
+			RequestURL: "http://example.com/file?param=1",
+			Expected:   "http://example.com/file?param=1",
+		},
+		{
+			Name:       "with FTP",
+			RequestURL: "ftp://example.com/file?param=1",
+			Expected:   "ftp://example.com/file?param=1",
+		},
+		{
+			Name:       "without scheme",
+			RequestURL: "example.com/file?param=1",
+			Expected:   "http://example.com/file?param=1",
+		},
+		{
+			Name:       "with leading slash",
+			RequestURL: "/file?param=1",
+			SiteURL:    "https://mattermost.example.com:123/subpath",
+			Expected:   "https://mattermost.example.com:123/file?param=1",
+		},
+	} {
+		t.Run(test.Name, func(t *testing.T) {
+			assert.Equal(t, normalizeMetadataRequestURL(test.RequestURL, test.SiteURL), test.Expected)
+		})
+	}
+}
+
 func TestParseLinkMetadata(t *testing.T) {
 	th := Setup().InitBasic()
 	defer th.TearDown()
