@@ -347,24 +347,34 @@ test-server-race: test-te-race test-ee-race ## Checks for race conditions.
 do-cover-file: ## Creates the test coverage report file.
 	@echo "mode: count" > cover.out
 
-test-te: do-cover-file ## Runs tests in the team edition.
+test-te: start-docker do-cover-file ## Runs tests in the team edition.
 	@echo Testing TE
 	@echo "Packages to test: "$(TE_PACKAGES)
 	find . -name 'cprofile*.out' -exec sh -c 'rm "{}"' \;
 	$(GO) test $(GOFLAGS) -run=$(TESTS) $(TESTFLAGS) -p 1 -v -timeout=2000s -covermode=count -coverpkg=$(ALL_PACKAGES_COMMA) -exec $(ROOT)/scripts/test-xprog.sh $(TE_PACKAGES)
 	find . -name 'cprofile*.out' -exec sh -c 'tail -n +2 {} >> cover.out ; rm "{}"' \;
 
-test-ee: do-cover-file ## Runs tests in the enterprise edition.
+test-ee: start-docker do-cover-file ## Runs tests in the enterprise edition.
 	@echo Testing EE
+
+	rm -f enterprise/config/*.crt
+	rm -f enterprise/config/*.key
 
 ifeq ($(BUILD_ENTERPRISE_READY),true)
 	@echo "Packages to test: "$(EE_PACKAGES)
 	find . -name 'cprofile*.out' -exec sh -c 'rm "{}"' \;
 	$(GO) test $(GOFLAGS) -run=$(TESTS) $(TESTFLAGSEE) -p 1 -v -timeout=2000s -covermode=count -coverpkg=$(ALL_PACKAGES_COMMA) -exec $(ROOT)/scripts/test-xprog.sh $(EE_PACKAGES)
 	find . -name 'cprofile*.out' -exec sh -c 'tail -n +2 {} >> cover.out ; rm "{}"' \;
-	rm -f config/*.crt
-	rm -f config/*.key
+	rm -f enterprise/config/*.crt
+	rm -f enterprise/config/*.key
 endif
+
+test-compile:
+	@echo COMPILE TESTS
+
+	for package in $(TE_PACKAGES) $(EE_PACKAGES); do \
+		$(GO) test $(GOFLAGS) -c $$package; \
+	done
 
 test-server: test-te test-ee ## Runs tests.
 	find . -type d -name data -not -path './vendor/*' | xargs rm -rf
